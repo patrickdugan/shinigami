@@ -10,14 +10,14 @@ use shinigami_utils::byte_array::felt252_to_byte_array;
 use shinigami_utils::bytecode::hex_to_bytecode;
 use shinigami_tests::validate;
 
-#[derive(Clone, Drop)]
+#[derive(Clone, Drop, Serde)]
 struct InputData {
     ScriptSig: ByteArray,
     ScriptPubKey: ByteArray,
     txid: u256,
 }
 
-#[derive(Clone, Drop)]
+#[derive(Clone, Drop, Serde)]
 struct InputDataWithFlags {
     ScriptSig: ByteArray,
     ScriptPubKey: ByteArray,
@@ -25,7 +25,7 @@ struct InputDataWithFlags {
     txid: u256,
 }
 
-#[derive(Clone, Drop)]
+#[derive(Clone, Drop, Serde)]
 struct InputDataWithWitness {
     ScriptSig: ByteArray,
     ScriptPubKey: ByteArray,
@@ -34,6 +34,7 @@ struct InputDataWithWitness {
     txid: u256,
 }
 
+#[executable]
 fn run_with_flags(input: InputDataWithFlags) -> Result<(), felt252> {
     println!(
         "Running Bitcoin Script with ScriptSig: '{}', ScriptPubKey: '{}' and Flags: '{}'",
@@ -55,6 +56,7 @@ fn run_with_flags(input: InputDataWithFlags) -> Result<(), felt252> {
     Result::Ok(())
 }
 
+#[executable]
 fn run_with_witness(input: InputDataWithWitness) -> Result<(), felt252> {
     println!(
         "Running Bitcoin Script with ScriptSig: '{}', ScriptPubKey: '{}', Flags: '{}' and Witness: '{}'",
@@ -79,6 +81,7 @@ fn run_with_witness(input: InputDataWithWitness) -> Result<(), felt252> {
     Result::Ok(())
 }
 
+#[executable]
 fn run(input: InputData) -> Result<(), felt252> {
     println!(
         "Running Bitcoin Script with ScriptSig: '{}' and ScriptPubKey: '{}'",
@@ -107,6 +110,7 @@ fn run(input: InputData) -> Result<(), felt252> {
     }
 }
 
+#[executable]
 fn run_with_json(input: InputData) -> Result<(), felt252> {
     println!(
         "Running Bitcoin Script with ScriptSig: '{}' and ScriptPubKey: '{}'",
@@ -127,6 +131,7 @@ fn run_with_json(input: InputData) -> Result<(), felt252> {
     Result::Ok(())
 }
 
+#[executable]
 fn debug(input: InputData) -> Result<bool, felt252> {
     println!(
         "Running Bitcoin Script with ScriptSig: '{}' and ScriptPubKey: '{}'",
@@ -156,6 +161,7 @@ fn debug(input: InputData) -> Result<bool, felt252> {
     res
 }
 
+#[executable]
 fn main(input: InputDataWithFlags) -> u8 {
     let res = run_with_flags(input);
     match res {
@@ -170,6 +176,7 @@ fn main(input: InputDataWithFlags) -> u8 {
     }
 }
 
+#[executable]
 fn main_with_witness(input: InputDataWithWitness) -> u8 {
     let res = run_with_witness(input);
     match res {
@@ -184,6 +191,7 @@ fn main_with_witness(input: InputDataWithWitness) -> u8 {
     }
 }
 
+#[executable]
 fn backend_run(input: InputData) -> u8 {
     let res = run_with_json(input);
     match res {
@@ -198,6 +206,7 @@ fn backend_run(input: InputData) -> u8 {
     }
 }
 
+#[executable]
 fn backend_debug(input: InputData) -> u8 {
     let res = debug(input);
     match res {
@@ -212,7 +221,7 @@ fn backend_debug(input: InputData) -> u8 {
     }
 }
 
-#[derive(Drop)]
+#[derive(Drop, Serde, Clone)]
 struct ValidateRawInput {
     raw_transaction: ByteArray,
     utxo_hints: Array<UTXO>,
@@ -220,6 +229,7 @@ struct ValidateRawInput {
     txid: u256 // from raito or calculate from raw_transaction in decode ?
 }
 
+#[executable]
 fn run_raw_transaction(mut input: ValidateRawInput) -> u8 {
     println!("Running Bitcoin Script with raw transaction: '{}'", input.raw_transaction);
     let raw_transaction = hex_to_bytecode(@input.raw_transaction);

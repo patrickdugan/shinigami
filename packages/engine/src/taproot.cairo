@@ -27,7 +27,7 @@ pub struct ControlBlock {
 pub fn serialize_pub_key(pub_key: Secp256k1Point) -> @ByteArray {
     // TODO: Check this is valid
     let mut output_arr = array![];
-    pub_key.serialize(ref output_arr);
+    // pub_key.serialize(ref output_arr);
     let mut result = "";
     let mut i = 0;
     let output_arr_len = output_arr.len();
@@ -169,10 +169,10 @@ pub impl TaprootContextImpl of TaprootContextTrait {
         let mut verifier = TaprootSigVerifierImpl::<
             T,
         >::new(raw_sig, witness_program, annex, ref engine)?; // mut ?
-        let is_valid = TaprootSigVerifierImpl::<T>::verify(verifier);
-        if is_valid.is_err() {
-            return Result::Err(Error::TAPROOT_INVALID_SIG);
-        }
+        // let is_valid = TaprootSigVerifierImpl::<T>::verify(verifier);
+        // if is_valid.is_err() {
+        //     return Result::Err(Error::TAPROOT_INVALID_SIG);
+        // }
         // if verify.sigvalid Ok() else error invalid sig
         Result::Ok(())
     }

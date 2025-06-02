@@ -1,4 +1,4 @@
-use core::sha256::compute_sha256_byte_array;
+use shinigami_utils::sha256::compute_sha256_byte_array;
 
 pub fn sha256_byte_array(byte: @ByteArray) -> ByteArray {
     let msg_hash = compute_sha256_byte_array(byte);

@@ -384,11 +384,11 @@ pub fn parse_pub_key(pk_bytes: @ByteArray) -> Result<Secp256k1Point, felt252> {
             parity = true;
         }
 
-        return Result::Ok(
-            Secp256Trait::<Secp256k1Point>::secp256_ec_get_point_from_x_syscall(pub_key, parity)
-                .unwrap_syscall()
-                .expect(Error::SECP256K1_INVALID_POINT),
-        );
+        // return Result::Ok(
+        //     Secp256Trait::<Secp256k1Point>::secp256_ec_get_point_from_x_syscall(pub_key, parity)
+        //         .unwrap_syscall()
+        //         .expect(Error::SECP256K1_INVALID_POINT),
+        // );
     } else {
         // Extract X coordinate and determine parity from last byte.
         if pk_bytes_uncompressed.len() != 65 {
@@ -397,12 +397,13 @@ pub fn parse_pub_key(pk_bytes: @ByteArray) -> Result<Secp256k1Point, felt252> {
         let pub_key: u256 = u256_from_byte_array_with_offset(@pk_bytes_uncompressed, 1, 32);
         let parity = !(pk_bytes_uncompressed[64] & 1 == 0);
 
-        return Result::Ok(
-            Secp256Trait::<Secp256k1Point>::secp256_ec_get_point_from_x_syscall(pub_key, parity)
-                .unwrap_syscall()
-                .expect(Error::INVALID_PUBKEY_LEN),
-        );
+        // return Result::Ok(
+        //     Secp256Trait::<Secp256k1Point>::secp256_ec_get_point_from_x_syscall(pub_key, parity)
+        //         .unwrap_syscall()
+        //         .expect(Error::INVALID_PUBKEY_LEN),
+        // );
     }
+    return Result::Err('Unsupported ATM');
 }
 
 // Parses a DER-encoded ECDSA signature byte array into a `Signature` struct.

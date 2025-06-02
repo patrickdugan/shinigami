@@ -4,7 +4,7 @@ use shinigami_utils::bytecode::{bytecode_to_hex, read_var_int, write_var_int};
 use shinigami_utils::bit_shifts::shr;
 use shinigami_utils::hash::double_sha256;
 
-#[derive(Debug, Drop, Clone, Default)]
+#[derive(Debug, Drop, Clone, Default, Serde)]
 pub struct UTXO {
     pub amount: i64,
     pub pubkey_script: ByteArray,
@@ -134,7 +134,7 @@ pub impl EngineInternalTransactionImpl of EngineInternalTransactionTrait {
             version: 1,
             transaction_inputs: array![
                 EngineTransactionInput {
-                    previous_outpoint: EngineOutPoint { txid: coinbase_txid, vout: 0 },
+                    previous_outpoint: EngineOutPoint { txid: 0x0, vout: 0 },
                     signature_script: script_sig,
                     witness: array![],
                     sequence: 0xffffffff,
@@ -157,6 +157,8 @@ pub impl EngineInternalTransactionImpl of EngineInternalTransactionTrait {
         //     ],
         //     transaction_outputs: array![],
         //     locktime: 0,
+        //     txid: txid,
+        //     utxos: utxos,
         // };
         transaction
     }

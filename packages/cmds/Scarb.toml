@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024_07"
 
 [dependencies]
+cairo_execute = "2.11.4"
 shinigami_compiler = { path = "../compiler" }
 shinigami_engine = { path = "../engine" }
 shinigami_tests = { path = "../tests" }
@@ -14,3 +15,56 @@ cairo_test.workspace = true
 
 [scripts]
 lint = "scarb fmt"
+
+# [executable]
+# allow-syscalls = true
+
+[[target.executable]]
+name = "backend_debug"
+function = "shinigami_cmds::main::backend_debug"
+allow-syscalls = true
+
+[[target.executable]]
+name = "backend_run"
+function = "shinigami_cmds::main::backend_run"
+allow-syscalls = true
+
+[[target.executable]]
+name = "debug"
+function = "shinigami_cmds::main::debug"
+allow-syscalls = true
+
+[[target.executable]]
+name = "main"
+function = "shinigami_cmds::main::main"
+allow-syscalls = true
+
+[[target.executable]]
+name = "main_with_witness"
+function = "shinigami_cmds::main::main_with_witness"
+allow-syscalls = true
+
+[[target.executable]]
+name = "run"
+function = "shinigami_cmds::main::run"
+allow-syscalls = true
+
+[[target.executable]]
+name = "run_raw_transaction"
+function = "shinigami_cmds::main::run_raw_transaction"
+allow-syscalls = true
+
+[[target.executable]]
+name = "run_with_flags"
+function = "shinigami_cmds::main::run_with_flags"
+allow-syscalls = true
+
+[[target.executable]]
+name = "run_with_json"
+function = "shinigami_cmds::main::run_with_json"
+allow-syscalls = true
+
+[[target.executable]]
+name = "run_with_witness"
+function = "shinigami_cmds::main::run_with_witness"
+allow-syscalls = true
