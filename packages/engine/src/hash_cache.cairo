@@ -1,10 +1,10 @@
+use core::dict::Felt252Dict;
+use shinigami_utils::bytecode::write_var_int;
+use shinigami_utils::hash::{compute_sha256_byte_array, hash_to_u256, sha256_u256, simple_sha256};
+use crate::signature::utils::is_witness_v1_pub_key_hash;
 use crate::transaction::{
     EngineTransactionInputTrait, EngineTransactionOutputTrait, EngineTransactionTrait,
 };
-use shinigami_utils::{bytecode::{write_var_int}, hash::{hash_to_u256, sha256_u256, simple_sha256}};
-use core::sha256::compute_sha256_byte_array;
-use crate::signature::utils::is_witness_v1_pub_key_hash;
-use core::dict::Felt252Dict;
 
 // use core::poseidon::PoseidonTrait;
 // use core::hash::{HashStateTrait, HashStateExTrait};
@@ -70,7 +70,7 @@ pub impl SigHashMidstateImpl<
             if hasV0Inputs && hasV1Inputs {
                 break;
             }
-        };
+        }
 
         let mut prevouts_v0_bytes: ByteArray = "";
         let inputs = transaction.get_transaction_inputs();
@@ -79,18 +79,18 @@ pub impl SigHashMidstateImpl<
             prevouts_v0_bytes.append_word(txid.high.into(), 16);
             prevouts_v0_bytes.append_word(txid.low.into(), 16);
             prevouts_v0_bytes.append_word_rev(input.get_prevout_vout().into(), 4);
-        };
+        }
         let mut sequence_v0_bytes: ByteArray = "";
         for input in inputs {
             sequence_v0_bytes.append_word_rev(input.get_sequence().into(), 4);
-        };
+        }
         let mut outputs_v0_bytes: ByteArray = "";
         let outputs = transaction.get_transaction_outputs();
         for output in outputs {
             outputs_v0_bytes.append_word_rev(output.get_value().into(), 8);
             write_var_int(ref outputs_v0_bytes, output.get_publickey_script().len().into());
             outputs_v0_bytes.append(output.get_publickey_script());
-        };
+        }
 
         let hashPrevOutsV1: [u32; 8] = compute_sha256_byte_array(@prevouts_v0_bytes);
         let hashSequenceV1: [u32; 8] = compute_sha256_byte_array(@sequence_v0_bytes);
@@ -131,7 +131,7 @@ pub impl SigHashMidstateImpl<
         let mut buffer: ByteArray = "";
         for utxo in transaction.get_transaction_utxos() {
             buffer.append_word_rev(utxo.amount.into(), 8);
-        };
+        }
         return simple_sha256(@buffer);
     }
 
@@ -142,7 +142,7 @@ pub impl SigHashMidstateImpl<
         for utxo in transaction.get_transaction_utxos() {
             write_var_int(ref buffer, utxo.pubkey_script.len().into());
             buffer.append(@utxo.pubkey_script);
-        };
+        }
 
         return simple_sha256(@buffer);
     }

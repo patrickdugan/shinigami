@@ -1,6 +1,5 @@
 use shinigami_utils::bytecode::hex_to_bytecode;
-use shinigami_utils::hash::sha256_byte_array;
-use core::sha256::compute_sha256_byte_array;
+use shinigami_utils::hash::{compute_sha256_byte_array, sha256_byte_array};
 
 const TWO_POW_32: u128 = 0x100000000;
 const TWO_POW_64: u128 = 0x10000000000000000;
@@ -81,7 +80,7 @@ pub fn tagged_hash(tag: HashTag, msg: @ByteArray) -> u256 {
                 ),
             ),
         HashTag::Other(bytes) => sha_tag.append(@sha256_byte_array(@bytes)),
-    };
+    }
 
     // h = sha256(sha256(tag) || sha256(tag) || msg)
     let mut h: ByteArray = sha_tag.clone();

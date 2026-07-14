@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024_07"
 
 [dependencies]
+alexandria_math.workspace = true
 
 [dev-dependencies]
 cairo_test.workspace = true

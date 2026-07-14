@@ -2,6 +2,11 @@
 version = 1
 
 [[package]]
+name = "alexandria_math"
+version = "0.10.0"
+source = "git+https://github.com/keep-starknet-strange/alexandria.git?rev=6d2cfcc0954c8d7796f028b25336faa8e9378da8#6d2cfcc0954c8d7796f028b25336faa8e9378da8"
+
+[[package]]
 name = "ripemd160"
 version = "0.1.0"
 source = "git+https://github.com/j1mbo64/ripemd160_cairo.git#cdc5ab58b0acc64db87e0b03851fb18213977dc8"
@@ -51,3 +56,6 @@ dependencies = [
 [[package]]
 name = "shinigami_utils"
 version = "0.1.0"
+dependencies = [
+ "alexandria_math",
+]
