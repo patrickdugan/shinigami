@@ -4,6 +4,7 @@ pub mod bytecode;
 pub mod hash;
 pub mod hex;
 pub mod maths;
+pub mod sha256;
 
 #[cfg(test)]
 mod tests {}
