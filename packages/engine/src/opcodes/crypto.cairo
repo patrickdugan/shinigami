@@ -11,7 +11,6 @@ use crate::signature::{
     taproot_signature::{TaprootSigVerifierTrait, TaprootSigVerifierImpl},
 };
 
-use starknet::secp256_trait::{is_valid_signature};
 use shinigami_utils::hash::{sha256_byte_array, double_sha256_bytearray};
 use crate::opcodes::utils;
 use crate::scriptnum::ScriptNum;
@@ -286,7 +285,9 @@ pub fn opcode_checkmultisig<
             sig_hash = sighash::calc_signature_hash(@script, hash_type, transaction, tx_idx);
         };
 
-        if is_valid_signature(sig_hash, parsed_sig.r, parsed_sig.s, parsed_pub_key) {
+        if signature::is_valid_ecdsa_signature(
+            sig_hash, parsed_sig.r, parsed_sig.s, parsed_pub_key,
+        ) {
             sig_idx += 1;
             num_sigs -= 1;
         }

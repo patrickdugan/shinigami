@@ -13,6 +13,27 @@ use crate::errors::Error;
 use shinigami_utils::byte_array::{sub_byte_array};
 use crate::parser;
 
+// Verifies an ECDSA signature as Bitcoin consensus does, accepting any `s` in [1, n).
+//
+// Corelib's `is_valid_signature` rejects `s > n / 2` in recent Cairo versions (it did not up to
+// 2.12). In Bitcoin that is a relay policy, enforced separately under `ScriptVerifyLowS`, not a
+// consensus rule. `(r, s)` and `(r, n - s)` verify identically, so a high `s` is replaced by its
+// low counterpart before calling corelib.
+pub fn is_valid_ecdsa_signature(
+    msg_hash: u256, r: u256, s: u256, public_key: Secp256k1Point,
+) -> bool {
+    let order = Secp256Trait::<Secp256k1Point>::get_curve_size();
+    if s >= order {
+        return false;
+    }
+    let low_s = if s > order / 2 {
+        order - s
+    } else {
+        s
+    };
+    is_valid_signature(msg_hash, r, low_s, public_key)
+}
+
 //`BaseSigVerifier` is used to verify ECDSA signatures encoded in DER or BER format (pre-SegWit sig)
 #[derive(Drop)]
 pub struct BaseSigVerifier {
@@ -73,7 +94,7 @@ impl BaseSigVerifierImpl<
             I, O, T,
         >(sub_script, self.hash_type, vm.transaction, vm.tx_idx);
 
-        is_valid_signature(sig_hash, self.sig.r, self.sig.s, self.pub_key)
+        is_valid_ecdsa_signature(sig_hash, self.sig.r, self.sig.s, self.pub_key)
     }
 }
 
@@ -107,7 +128,7 @@ impl BaseSegwitSigVerifierImpl<
             I, O, T,
         >(@self.sub_script, sig_hashes, self.hash_type, vm.transaction, vm.tx_idx, vm.amount);
 
-        is_valid_signature(sig_hash, self.sig.r, self.sig.s, self.pub_key)
+        is_valid_ecdsa_signature(sig_hash, self.sig.r, self.sig.s, self.pub_key)
     }
 }
 
