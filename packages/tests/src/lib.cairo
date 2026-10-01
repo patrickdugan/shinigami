@@ -23,4 +23,6 @@ pub mod tests {
     mod test_p2wsh;
     mod test_p2ms;
     mod test_p2sh;
+    mod test_p2tr_bip341;
+    mod test_p2tr_ark;
 }
