@@ -32,10 +32,12 @@ pub mod signature {
     pub mod schnorr;
 }
 pub mod transaction;
+pub mod secp256k1;
 
 #[cfg(test)]
 mod tests {
     mod test_scriptnum;
     mod test_schnorr;
+    mod test_secp256k1;
     mod test_taproot_hash;
 }
