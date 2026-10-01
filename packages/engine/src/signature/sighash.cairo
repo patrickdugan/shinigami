@@ -202,7 +202,7 @@ pub impl TaprootSighashOptionsImpl of TaprootSighashOptionsTrait {
     fn new_with_annex(annex: @ByteArray) -> TaprootSighashOptions {
         TaprootSighashOptions {
             ext_flag: BASE_SIGHASH_EXT_FLAG,
-            annex_hash: @sha256_byte_array(annex),
+            annex_hash: @hash_annex(annex),
             tap_leaf_hash: @"",
             key_version: 0,
             code_sep_pos: 0,
@@ -222,7 +222,7 @@ pub impl TaprootSighashOptionsImpl of TaprootSighashOptionsTrait {
     }
 
     fn set_annex(ref self: TaprootSighashOptions, annex: @ByteArray) {
-        self.annex_hash = @sha256_byte_array(annex);
+        self.annex_hash = @hash_annex(annex);
     }
 
     // Write in msg the sihash message extension defined by the current active flag.
@@ -234,10 +234,18 @@ pub impl TaprootSighashOptionsImpl of TaprootSighashOptionsTrait {
         } else if self.ext_flag == TAPSCRIPT_SIGHASH_EXT_FLAG {
             msg.append(self.tap_leaf_hash);
             msg.append_byte(self.key_version);
-            msg.append_word(self.code_sep_pos.into(), 4);
+            msg.append_word_rev(self.code_sep_pos.into(), 4);
         }
         return;
     }
+}
+
+// sha256(compact_size(annex) || annex), as committed to by the BIP-341 signature message.
+fn hash_annex(annex: @ByteArray) -> ByteArray {
+    let mut bytes: ByteArray = "";
+    write_var_int(ref bytes, annex.len().into());
+    bytes.append(annex);
+    sha256_byte_array(@bytes)
 }
 
 // Return true if `taproot_sighash` is valid.
@@ -342,6 +350,7 @@ pub fn calc_taproot_signature_hash<
         // previous output (amount and script)
         sig_msg.append_word_rev(prev_output.get_value().into(), 8);
         write_var_int(ref sig_msg, prev_output.get_publickey_script().len().into());
+        sig_msg.append(prev_output.get_publickey_script());
 
         // input sequence
         sig_msg.append_word_rev(input.get_sequence().into(), 4);

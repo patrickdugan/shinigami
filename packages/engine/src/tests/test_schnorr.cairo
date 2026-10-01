@@ -65,7 +65,6 @@ fn test_schnorr_verify_4() {
 }
 
 #[test]
-#[should_panic] // Because 'unwrap_syscall()' panics on error, so the error is unrecoverable
 fn test_schnorr_verify_5() {
     // Public key not on the curve
     let sig = Signature {
@@ -75,7 +74,8 @@ fn test_schnorr_verify_5() {
     };
     let pk: u256 = 0xeefdea4cdb677750a420fee807eacf21eb9898ae79b9768766e4faa04a2d4a34;
     let m: u256 = 0x243f6a8885a308d313198a2e03707344a4093822299f31d0082efa98ec4e6c89;
-    verify_schnorr(sig, @m.into(), @pk.into()).unwrap_err();
+    let result = verify_schnorr(sig, @m.into(), @pk.into()).unwrap_err();
+    assert_eq!(result, Error::SECP256K1_INVALID_POINT);
 }
 
 #[test]
@@ -189,7 +189,6 @@ fn test_schnorr_verify_13() {
 }
 
 #[test]
-#[should_panic] // Because 'unwrap_syscall()' panics on error, so the error is unrecoverable
 fn test_schnorr_verify_14() {
     // Public key is not a valid X coordinate because it exceeds the field size
     let sig = Signature {
@@ -199,5 +198,6 @@ fn test_schnorr_verify_14() {
     };
     let pk: u256 = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc30;
     let m: u256 = 0x243f6a8885a308d313198a2e03707344a4093822299f31d0082efa98ec4e6c89;
-    verify_schnorr(sig, @m.into(), @pk.into()).unwrap_err();
+    let result = verify_schnorr(sig, @m.into(), @pk.into()).unwrap_err();
+    assert_eq!(result, Error::SECP256K1_INVALID_POINT);
 }

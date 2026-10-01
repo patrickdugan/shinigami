@@ -10,7 +10,7 @@ use crate::errors::Error;
 
 use shinigami_utils::byte_array::{U256IntoByteArray};
 use starknet::secp256_trait::{Signature};
-use starknet::secp256k1::{Secp256k1Point};
+use crate::secp256k1::Point;
 
 pub const SCHNORR_SIGNATURE_LEN: usize = 64;
 
@@ -30,7 +30,7 @@ pub fn parse_taproot_sig_and_pk<
     >,
 >(
     ref vm: Engine<T>, pk_bytes: @ByteArray, sig_bytes: @ByteArray,
-) -> Result<(Secp256k1Point, Signature, u32), felt252> {
+) -> Result<(Point, Signature, u32), felt252> {
     let pk = schnorr::parse_schnorr_pub_key(pk_bytes)?;
 
     // Check the size of the signature and if the `sighash byte` is set.
@@ -64,7 +64,7 @@ pub fn parse_taproot_sig_and_pk<
 #[derive(Drop)]
 pub struct TaprootSigVerifier<T> {
     // public key as a point on the secp256k1 curve, used to verify the signature
-    pub pub_key: Option<Secp256k1Point>,
+    pub pub_key: Option<Point>,
     // ECDSA signature
     pub sig: Signature,
     // raw byte array of the signature
@@ -183,7 +183,10 @@ pub impl TaprootSigVerifierImpl<
 
 
     fn verify(self: TaprootSigVerifier<T>) -> Result<(), felt252> {
-        let mut opts = TaprootSighashOptionsTrait::new_with_annex(self.annex);
+        let mut opts = TaprootSighashOptionsTrait::new_default();
+        if self.annex.len() > 0 {
+            opts.set_annex(self.annex);
+        }
         let sig_hash = sighash::calc_taproot_signature_hash::<
             T,
         >(

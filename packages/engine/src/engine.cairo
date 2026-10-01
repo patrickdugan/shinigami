@@ -727,6 +727,17 @@ pub impl EngineInternalImpl<
         if final && self.is_witness_active(BASE_SEGWIT_WITNESS_VERSION) && self.dstack.len() != 1 {
             return Result::Err(Error::SCRIPT_NON_CLEAN_STACK);
         }
+        if final && self.use_taproot {
+            // A key-path spend, an OP_SUCCESS script or an unknown leaf version has already
+            // succeeded without running a script, so the stack is not inspected.
+            if self.taproot_context.must_succeed {
+                return self.dstack.peek_byte_array(0);
+            }
+            // An executed tapscript must leave exactly one element (BIP-342).
+            if self.dstack.len() != 1 {
+                return Result::Err(Error::SCRIPT_NON_CLEAN_STACK);
+            }
+        }
         if final && self.has_flag(ScriptFlags::ScriptVerifyCleanStack) && self.dstack.len() != 1 {
             return Result::Err(Error::SCRIPT_NON_CLEAN_STACK);
         }

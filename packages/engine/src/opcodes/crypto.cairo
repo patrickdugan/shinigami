@@ -6,6 +6,7 @@ use crate::stack::ScriptStackTrait;
 use crate::flags::ScriptFlags;
 use crate::signature::signature;
 use crate::signature::sighash;
+use crate::secp256k1;
 use crate::signature::{
     signature::{BaseSigVerifierTrait, BaseSegwitSigVerifierTrait},
     taproot_signature::{TaprootSigVerifierTrait, TaprootSigVerifierImpl},
@@ -116,17 +117,17 @@ pub fn opcode_checksig<
     } else if engine.use_taproot {
         // Taproot Signature Verification
 
-        let pk_bytes_len = pk_bytes.len();
-        if (pk_bytes_len > 0) {
+        // BIP-342: the sigops budget is charged for every non-empty signature.
+        if full_sig_bytes.len() > 0 {
             engine.taproot_context.use_ops_budget()?;
         }
 
-        if pk_bytes_len == 0 {
+        if pk_bytes.len() == 0 {
             return Result::Err(Error::TAPROOT_EMPTY_PUBKEY);
         }
 
         if (full_sig_bytes.len() == 0) {
-            engine.dstack.push_byte_array(""); // TODO verify this
+            engine.dstack.push_byte_array("");
             return Result::Ok(());
         }
 
@@ -134,7 +135,9 @@ pub fn opcode_checksig<
             I, O, T,
         >::new_base(@full_sig_bytes, @pk_bytes, ref engine)?;
 
-        is_valid = TaprootSigVerifierTrait::<I, O, T>::verify(verifier).is_ok();
+        // The tapscript signature message carries the leaf hash, key version and code
+        // separator position, unlike the key-path one.
+        is_valid = TaprootSigVerifierTrait::<I, O, T>::verify_base(verifier, ref engine).is_ok();
     }
 
     // TODO already handle ?
@@ -285,9 +288,7 @@ pub fn opcode_checkmultisig<
             sig_hash = sighash::calc_signature_hash(@script, hash_type, transaction, tx_idx);
         };
 
-        if signature::is_valid_ecdsa_signature(
-            sig_hash, parsed_sig.r, parsed_sig.s, parsed_pub_key,
-        ) {
+        if secp256k1::verify_ecdsa(sig_hash, parsed_sig.r, parsed_sig.s, parsed_pub_key) {
             sig_idx += 1;
             num_sigs -= 1;
         }

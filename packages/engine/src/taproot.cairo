@@ -4,8 +4,11 @@ use crate::transaction::{
 };
 use crate::signature::{schnorr, taproot_signature::{TaprootSigVerifierImpl}};
 use crate::engine::Engine;
-
-use starknet::secp256k1::{Secp256k1Point};
+use crate::hash_tag::{HashTag, tagged_hash};
+use crate::secp256k1;
+use crate::secp256k1::Point;
+use shinigami_utils::byte_array::{U256IntoByteArray, u256_from_byte_array_with_offset};
+use shinigami_utils::bytecode::write_var_int;
 
 #[derive(Destruct)]
 pub struct TaprootContext {
@@ -18,61 +21,50 @@ pub struct TaprootContext {
 
 #[derive(Drop)]
 pub struct ControlBlock {
-    internal_pubkey: Secp256k1Point,
+    internal_pubkey: Point,
     output_key_y_is_odd: bool,
     pub leaf_version: u8,
     control_block: @ByteArray,
 }
 
-pub fn serialize_pub_key(pub_key: Secp256k1Point) -> @ByteArray {
-    // TODO: Check this is valid
-    let mut output_arr = array![];
-    pub_key.serialize(ref output_arr);
-    let mut result = "";
-    let mut i = 0;
-    let output_arr_len = output_arr.len();
-    while i != output_arr_len {
-        result.append_word(*output_arr[i], 31);
-        i += 1;
+// Computes the BIP-341 leaf hash:
+// tagged_hash("TapLeaf", leaf_version || compact_size(script) || script).
+pub fn tap_hash(script: @ByteArray, version: u8) -> u256 {
+    let mut msg: ByteArray = "";
+    msg.append_byte(version);
+    write_var_int(ref msg, script.len().into());
+    msg.append(script);
+    tagged_hash(HashTag::TapLeaf, @msg)
+}
+
+// Combines two nodes of the script tree. BIP-341 orders the two 32-byte hashes
+// lexicographically, which for big-endian values is numeric order.
+pub fn tap_branch_hash(a: u256, b: u256) -> u256 {
+    let (first, second) = if a < b {
+        (a, b)
+    } else {
+        (b, a)
     };
-    return @result;
+    let mut msg: ByteArray = first.into();
+    msg.append(@second.into());
+    tagged_hash(HashTag::TapBranch, @msg)
 }
 
-pub fn serialize_schnorr_pub_key(pub_key: Secp256k1Point) -> @ByteArray {
-    let pub_key_bytes: @ByteArray = serialize_pub_key(pub_key);
-    let mut result = "";
-    let mut i = 1;
-    let pub_key_bytes_len = pub_key_bytes.len();
-    while i != pub_key_bytes_len {
-        result.append_byte(pub_key_bytes[i]);
-        i += 1;
-    };
-    return @result;
-}
-
-pub fn compute_taproot_output_key(pubkey: @Secp256k1Point, script: @ByteArray) -> Secp256k1Point {
-    // TODO: Implement
-    return pubkey.clone();
-}
-
-pub fn tap_hash(sript: @ByteArray, version: u8) -> u256 {
-    // TODO: Implement
-    return 0;
-}
-
-pub fn serialized_compressed(pub_key: Secp256k1Point) -> ByteArray {
-    // TODO: Implement
-    return "";
+// Computes the taproot output key Q = P + tagged_hash("TapTweak", P || merkle_root) * G.
+// Returns `None` where BIP-341 fails: the tweak is not below the curve order, or Q is the point
+// at infinity.
+pub fn compute_taproot_output_key(internal_pubkey: Point, merkle_root: u256) -> Option<Point> {
+    let mut msg: ByteArray = internal_pubkey.x.into();
+    msg.append(@merkle_root.into());
+    let tweak = tagged_hash(HashTag::TapTweak, @msg);
+    secp256k1::tweak_add(internal_pubkey, tweak)
 }
 
 #[generate_trait()]
 pub impl ControlBlockImpl of ControlBlockTrait {
     // TODO: From parse
     fn new(
-        internal_pubkey: Secp256k1Point,
-        output_key_y_is_odd: bool,
-        leaf_version: u8,
-        control_block: @ByteArray,
+        internal_pubkey: Point, output_key_y_is_odd: bool, leaf_version: u8, control_block: @ByteArray,
     ) -> ControlBlock {
         ControlBlock {
             internal_pubkey: internal_pubkey,
@@ -82,23 +74,40 @@ pub impl ControlBlockImpl of ControlBlockTrait {
         }
     }
 
-    fn root_hash(self: @ControlBlock, script: @ByteArray) -> ByteArray {
-        // TODO: Implement
-        return "";
+    // Computes the Merkle root that this control block commits to for `script`: the leaf hash
+    // folded with each 32-byte node of the control block's path.
+    fn root_hash(self: @ControlBlock, script: @ByteArray) -> u256 {
+        let control_block = *self.control_block;
+        let control_block_len = control_block.len();
+        let mut node = tap_hash(script, *self.leaf_version);
+        let mut offset = CONTROL_BLOCK_BASE_SIZE;
+        while offset != control_block_len {
+            let sibling = u256_from_byte_array_with_offset(
+                control_block, offset, CONTROL_BLOCK_NODE_SIZE,
+            );
+            node = tap_branch_hash(node, sibling);
+            offset += CONTROL_BLOCK_NODE_SIZE;
+        };
+        node
     }
 
+    // Checks that the witness program is the output key committing to `script` through this
+    // control block, and that the control block states the right parity for that key.
     fn verify_taproot_leaf(
         self: @ControlBlock, witness_program: @ByteArray, script: @ByteArray,
     ) -> Result<(), felt252> {
         let root_hash = self.root_hash(script);
-        let taproot_key = compute_taproot_output_key(self.internal_pubkey, @root_hash);
-        let expected_witness_program = serialize_pub_key(taproot_key);
-        if witness_program != expected_witness_program {
+        let output_key = match compute_taproot_output_key(*self.internal_pubkey, root_hash) {
+            Option::Some(key) => key,
+            Option::None => { return Result::Err(Error::TAPROOT_INVALID_MERKLE_PROOF); },
+        };
+        let expected_witness_program: ByteArray = output_key.x.into();
+        if witness_program != @expected_witness_program {
             return Result::Err(Error::TAPROOT_INVALID_MERKLE_PROOF);
         }
 
-        let y_is_odd = serialized_compressed(taproot_key)[0] == 0x03;
-        if self.output_key_y_is_odd != @y_is_odd {
+        let y_is_odd = output_key.y.low % 2 == 1;
+        if *self.output_key_y_is_odd != y_is_odd {
             return Result::Err(Error::TAPROOT_PARITY_MISMATCH);
         }
 

@@ -1,13 +1,13 @@
 use crate::errors::Error;
-use crate::signature::{constants, signature};
-use starknet::secp256k1::Secp256k1Point;
-use starknet::secp256_trait::{Secp256Trait, Signature, Secp256PointTrait};
-use starknet::SyscallResultTrait;
+use crate::signature::constants;
+use crate::secp256k1;
+use crate::secp256k1::Point;
+use starknet::secp256_trait::Signature;
 use crate::hash_tag::{HashTag, tagged_hash};
+use shinigami_utils::byte_array::u256_from_byte_array_with_offset;
 
-const p: u256 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
-
-pub fn parse_schnorr_pub_key(pk_bytes: @ByteArray) -> Result<Secp256k1Point, felt252> {
+// Parses a BIP-340 public key: the 32-byte x coordinate of the curve point with even y.
+pub fn parse_schnorr_pub_key(pk_bytes: @ByteArray) -> Result<Point, felt252> {
     if pk_bytes.len() == 0 {
         return Result::Err(Error::TAPROOT_EMPTY_PUBKEY);
     }
@@ -15,9 +15,11 @@ pub fn parse_schnorr_pub_key(pk_bytes: @ByteArray) -> Result<Secp256k1Point, fel
         return Result::Err(Error::TAPROOT_INVALID_PUBKEY_SIZE);
     }
 
-    let mut key_compressed: ByteArray = "\02";
-    key_compressed.append(pk_bytes);
-    return Result::Ok(signature::parse_pub_key(@key_compressed)?);
+    let x = u256_from_byte_array_with_offset(pk_bytes, 0, 32);
+    match secp256k1::lift_x(x, false) {
+        Option::Some(point) => Result::Ok(point),
+        Option::None => Result::Err(Error::SECP256K1_INVALID_POINT),
+    }
 }
 
 pub fn parse_schnorr_signature(sig_bytes: @ByteArray) -> Result<Signature, felt252> {
@@ -66,10 +68,9 @@ pub fn verify_schnorr(
 
     let P = parse_schnorr_pub_key(pubkey)?;
 
-    let n = Secp256Trait::<Secp256k1Point>::get_curve_size();
-    if sig.r >= p {
+    if sig.r >= secp256k1::FIELD_SIZE {
         return Result::Err(Error::SCHNORR_INVALID_SIG_R_FIELD);
-    } else if sig.s >= n {
+    } else if sig.s >= secp256k1::CURVE_ORDER {
         return Result::Err(Error::SCHNORR_INVALID_SIG_SIZE);
     }
 
@@ -80,16 +81,6 @@ pub fn verify_schnorr(
     msg.append(hash);
     let e = tagged_hash(HashTag::Bip0340Challenge, @msg);
 
-    let G = Secp256Trait::<Secp256k1Point>::get_generator_point();
-
-    // R = s⋅G - e⋅P
-    let p1 = G.mul(sig.s).unwrap_syscall();
-    let minus_e = Secp256Trait::<Secp256k1Point>::get_curve_size() - e;
-    let p2 = P.mul(minus_e).unwrap_syscall();
-    let R = p1.add(p2).unwrap_syscall();
-
-    let (Rx, Ry) = R.get_coordinates().unwrap_syscall();
-
-    // Fail if is_infinite(R) || not has_even_y(R) || x(R) ≠ rx.
-    Result::Ok(!(Rx == 0 && Ry == 0) && Ry % 2 == 0 && Rx == sig.r)
+    // Steps 6 to 9: R = s⋅G - e⋅P must be finite, have even y and x(R) = r.
+    Result::Ok(secp256k1::verify_schnorr_equation(sig.r, sig.s, e, P))
 }

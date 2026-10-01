@@ -2,9 +2,9 @@ use crate::engine::{Engine, EngineInternalImpl};
 use crate::transaction::{
     EngineTransactionInputTrait, EngineTransactionOutputTrait, EngineTransactionTrait,
 };
-use starknet::SyscallResultTrait;
-use starknet::secp256_trait::{Secp256Trait, Signature, is_valid_signature};
-use starknet::secp256k1::{Secp256k1Point};
+use starknet::secp256_trait::Signature;
+use crate::secp256k1;
+use crate::secp256k1::Point;
 use crate::flags::ScriptFlags;
 use crate::hash_cache::{SigHashMidstateTrait};
 use shinigami_utils::byte_array::u256_from_byte_array_with_offset;
@@ -13,32 +13,11 @@ use crate::errors::Error;
 use shinigami_utils::byte_array::{sub_byte_array};
 use crate::parser;
 
-// Verifies an ECDSA signature as Bitcoin consensus does, accepting any `s` in [1, n).
-//
-// Corelib's `is_valid_signature` rejects `s > n / 2` in recent Cairo versions (it did not up to
-// 2.12). In Bitcoin that is a relay policy, enforced separately under `ScriptVerifyLowS`, not a
-// consensus rule. `(r, s)` and `(r, n - s)` verify identically, so a high `s` is replaced by its
-// low counterpart before calling corelib.
-pub fn is_valid_ecdsa_signature(
-    msg_hash: u256, r: u256, s: u256, public_key: Secp256k1Point,
-) -> bool {
-    let order = Secp256Trait::<Secp256k1Point>::get_curve_size();
-    if s >= order {
-        return false;
-    }
-    let low_s = if s > order / 2 {
-        order - s
-    } else {
-        s
-    };
-    is_valid_signature(msg_hash, r, low_s, public_key)
-}
-
 //`BaseSigVerifier` is used to verify ECDSA signatures encoded in DER or BER format (pre-SegWit sig)
 #[derive(Drop)]
 pub struct BaseSigVerifier {
     // public key as a point on the secp256k1 curve, used to verify the signature
-    pub_key: Secp256k1Point,
+    pub_key: Point,
     // ECDSA signature
     sig: Signature,
     // raw byte array of the signature
@@ -94,7 +73,7 @@ impl BaseSigVerifierImpl<
             I, O, T,
         >(sub_script, self.hash_type, vm.transaction, vm.tx_idx);
 
-        is_valid_ecdsa_signature(sig_hash, self.sig.r, self.sig.s, self.pub_key)
+        secp256k1::verify_ecdsa(sig_hash, self.sig.r, self.sig.s, self.pub_key)
     }
 }
 
@@ -128,7 +107,7 @@ impl BaseSegwitSigVerifierImpl<
             I, O, T,
         >(@self.sub_script, sig_hashes, self.hash_type, vm.transaction, vm.tx_idx, vm.amount);
 
-        is_valid_ecdsa_signature(sig_hash, self.sig.r, self.sig.s, self.pub_key)
+        secp256k1::verify_ecdsa(sig_hash, self.sig.r, self.sig.s, self.pub_key)
     }
 }
 
@@ -315,7 +294,7 @@ pub fn check_signature_encoding<
         } else {
             s_value = u256_from_byte_array_with_offset(sig_bytes, s_offset, s_len);
         }
-        let mut half_order = Secp256Trait::<Secp256k1Point>::get_curve_size();
+        let mut half_order = secp256k1::CURVE_ORDER;
 
         let (half_order_high_upper, half_order_high_lower) = DivRem::div_rem(half_order.high, 2);
         let carry = half_order_high_lower;
@@ -385,45 +364,37 @@ pub fn check_pub_key_encoding<
     return Result::Ok(());
 }
 
-// Parses a public key byte array into a `Secp256k1Point` on the secp256k1 elliptic curve.
+// Parses a public key byte array into a point on the secp256k1 elliptic curve.
 //
-// This function processes the provided public key byte array (`pk_bytes`) and converts it into a
-// `Secp256k1Point` object, which represents the public key as a point on the secp256k1 elliptic
-// curve. Supports both compressed and uncompressed public keys.
+// Accepts the encodings Bitcoin consensus accepts: compressed (33 bytes, prefix 0x02 or 0x03),
+// uncompressed (65 bytes, prefix 0x04) and hybrid (65 bytes, prefix 0x06 or 0x07, where the
+// prefix must also match the parity of y). The point must be on the curve.
 //
 // @param pk_bytes The byte array representing the public key to be parsed.
-// @return A `Secp256k1Point` representing the public key on the secp256k1 elliptic curve.
-pub fn parse_pub_key(pk_bytes: @ByteArray) -> Result<Secp256k1Point, felt252> {
-    let mut pk_bytes_uncompressed = pk_bytes.clone();
-
+// @return The public key as a point, or an error if it is not a valid public key.
+pub fn parse_pub_key(pk_bytes: @ByteArray) -> Result<Point, felt252> {
     if is_compressed_pub_key(pk_bytes) {
-        // Extract X coordinate and determine parity from prefix byte.
-        let mut parity: bool = false;
-        let pub_key: u256 = u256_from_byte_array_with_offset(pk_bytes, 1, 32);
-
-        if pk_bytes[0] == 0x03 {
-            parity = true;
-        }
-
-        return Result::Ok(
-            Secp256Trait::<Secp256k1Point>::secp256_ec_get_point_from_x_syscall(pub_key, parity)
-                .unwrap_syscall()
-                .expect(Error::SECP256K1_INVALID_POINT),
-        );
-    } else {
-        // Extract X coordinate and determine parity from last byte.
-        if pk_bytes_uncompressed.len() != 65 {
-            return Result::Err(Error::INVALID_PUBKEY_LEN);
-        }
-        let pub_key: u256 = u256_from_byte_array_with_offset(@pk_bytes_uncompressed, 1, 32);
-        let parity = !(pk_bytes_uncompressed[64] & 1 == 0);
-
-        return Result::Ok(
-            Secp256Trait::<Secp256k1Point>::secp256_ec_get_point_from_x_syscall(pub_key, parity)
-                .unwrap_syscall()
-                .expect(Error::INVALID_PUBKEY_LEN),
-        );
+        let x: u256 = u256_from_byte_array_with_offset(pk_bytes, 1, 32);
+        return match secp256k1::lift_x(x, pk_bytes[0] == 0x03) {
+            Option::Some(point) => Result::Ok(point),
+            Option::None => Result::Err(Error::SECP256K1_INVALID_POINT),
+        };
     }
+
+    if pk_bytes.len() != 65 {
+        return Result::Err(Error::INVALID_PUBKEY_LEN);
+    }
+    let prefix = pk_bytes[0];
+    let x: u256 = u256_from_byte_array_with_offset(pk_bytes, 1, 32);
+    let y: u256 = u256_from_byte_array_with_offset(pk_bytes, 33, 32);
+    let y_is_odd = pk_bytes[64] % 2 == 1;
+    let prefix_is_valid = prefix == 0x04
+        || (prefix == 0x06 && !y_is_odd)
+        || (prefix == 0x07 && y_is_odd);
+    if !prefix_is_valid || !secp256k1::is_on_curve(x, y) {
+        return Result::Err(Error::SECP256K1_INVALID_POINT);
+    }
+    Result::Ok(Point { x, y })
 }
 
 // Parses a DER-encoded ECDSA signature byte array into a `Signature` struct.
@@ -457,7 +428,7 @@ pub fn parse_signature(sig_bytes: @ByteArray) -> Result<Signature, felt252> {
 
     let mut r_offset = 4;
     let mut s_offset = 6 + r_len;
-    let order: u256 = Secp256Trait::<Secp256k1Point>::get_curve_size();
+    let order: u256 = secp256k1::CURVE_ORDER;
     let mut i = 0;
 
     //Strip leading zero
@@ -524,7 +495,7 @@ pub fn parse_base_sig_and_pk<
     >,
 >(
     ref vm: Engine<T>, pk_bytes: @ByteArray, sig_bytes: @ByteArray,
-) -> Result<(Secp256k1Point, Signature, u32), felt252> {
+) -> Result<(Point, Signature, u32), felt252> {
     let verify_der = vm.has_flag(ScriptFlags::ScriptVerifyDERSignatures);
     let verify_strict_encoding = vm.has_flag(ScriptFlags::ScriptVerifyStrictEncoding);
     let strict_encoding = verify_strict_encoding || verify_der;
