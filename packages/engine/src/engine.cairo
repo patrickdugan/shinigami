@@ -671,15 +671,8 @@ pub impl EngineInternalImpl<
                 let witness_script = witness[witness_len - 2];
                 control_block.verify_taproot_leaf(@self.witness_program, witness_script)?;
 
-                if parser::has_success_opcode(witness_script) {
-                    if self.has_flag(ScriptFlags::ScriptVerifyDiscourageOpSuccess) {
-                        return Result::Err(Error::DISCOURAGE_OP_SUCCESS);
-                    }
-
-                    self.taproot_context.must_succeed = true;
-                    return Result::Ok(());
-                }
-
+                // As in Bitcoin Core, a leaf version other than tapscript succeeds without
+                // looking at the script, and only tapscript is scanned for OP_SUCCESS.
                 if control_block.leaf_version != taproot::BASE_LEAF_VERSION {
                     if self.has_flag(ScriptFlags::ScriptVerifyDiscourageUpgradeableTaprootVersion) {
                         return Result::Err(Error::DISCOURAGE_UPGRADABLE_TAPROOT_VERSION);
@@ -687,6 +680,15 @@ pub impl EngineInternalImpl<
                         self.taproot_context.must_succeed = true;
                         return Result::Ok(());
                     }
+                }
+
+                if parser::has_success_opcode(witness_script) {
+                    if self.has_flag(ScriptFlags::ScriptVerifyDiscourageOpSuccess) {
+                        return Result::Err(Error::DISCOURAGE_OP_SUCCESS);
+                    }
+
+                    self.taproot_context.must_succeed = true;
+                    return Result::Ok(());
                 }
 
                 self
