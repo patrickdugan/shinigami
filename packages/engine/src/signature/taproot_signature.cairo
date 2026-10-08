@@ -139,7 +139,7 @@ pub impl TaprootSigVerifierImpl<
         sig_bytes: @ByteArray, pk_bytes: @ByteArray, annex: @ByteArray, ref engine: Engine<T>,
     ) -> Result<TaprootSigVerifier<T>, felt252> {
         let (pub_key, sig, hash_type) = parse_taproot_sig_and_pk(ref engine, pk_bytes, sig_bytes)?;
-        let sig_hashes = SigHashMidstateTrait::new(engine.transaction);
+        let sig_hashes = engine.sig_hashes();
         let prevOutput = EngineTransactionOutput {
             value: engine.amount, publickey_script: (*engine.scripts[1]).clone(),
         };

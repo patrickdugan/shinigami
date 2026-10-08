@@ -7,7 +7,7 @@ use crate::stack::{ScriptStack, ScriptStackImpl};
 use crate::transaction::{
     EngineTransactionInputTrait, EngineTransactionOutputTrait, EngineTransactionTrait,
 };
-use crate::hash_cache::{HashCache, HashCacheTrait};
+use crate::hash_cache::{HashCache, HashCacheTrait, SigHashMidstateTrait, TxSigHashes};
 use crate::witness;
 use crate::taproot;
 use crate::taproot::{TaprootContext, TaprootContextImpl, ControlBlockImpl};
@@ -70,6 +70,8 @@ pub struct Engine<T> {
     pub num_ops: u32,
     //
     pub hash_cache: @HashCache<T>,
+    // Sighash midstates of the transaction, computed on first use
+    sig_hashes: Option<TxSigHashes>,
 }
 
 // TODO: SigCache
@@ -153,6 +155,7 @@ pub impl EngineImpl<
             last_code_sep: 0,
             num_ops: 0,
             hash_cache: hash_cache,
+            sig_hashes: Option::None,
         };
 
         if engine.has_flag(ScriptFlags::ScriptVerifyCleanStack)
@@ -487,6 +490,8 @@ pub trait EngineInternalTrait<
     fn check_error_condition(ref self: Engine<T>, final: bool) -> Result<ByteArray, felt252>;
     // Prints the engine state as json
     fn json(ref self: Engine<T>);
+    // The transaction's BIP-143 and BIP-341 sighash midstates, computed once per engine
+    fn sig_hashes(ref self: Engine<T>) -> TxSigHashes;
 }
 
 pub impl EngineInternalImpl<
@@ -774,5 +779,16 @@ pub impl EngineInternalImpl<
 
     fn json(ref self: Engine<T>) {
         self.dstack.json();
+    }
+
+    fn sig_hashes(ref self: Engine<T>) -> TxSigHashes {
+        match self.sig_hashes {
+            Option::Some(sig_hashes) => sig_hashes,
+            Option::None => {
+                let sig_hashes = SigHashMidstateTrait::new(self.transaction);
+                self.sig_hashes = Option::Some(sig_hashes);
+                sig_hashes
+            },
+        }
     }
 }

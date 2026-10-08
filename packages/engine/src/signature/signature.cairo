@@ -100,9 +100,10 @@ impl BaseSegwitSigVerifierImpl<
     +Drop<I>,
     +Drop<O>,
     +Drop<T>,
+    +Default<T>,
 > of BaseSegwitSigVerifierTrait<I, O, T> {
     fn verify(ref self: BaseSigVerifier, ref vm: Engine<T>) -> bool {
-        let sig_hashes = SigHashMidstateTrait::new(vm.transaction);
+        let sig_hashes = vm.sig_hashes();
         let sig_hash: u256 = sighash::calc_witness_signature_hash::<
             I, O, T,
         >(@self.sub_script, sig_hashes, self.hash_type, vm.transaction, vm.tx_idx, vm.amount);
