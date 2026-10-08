@@ -46,6 +46,8 @@ pub struct Engine<T> {
     script_idx: usize,
     // Program counter within the current script
     pub opcode_idx: usize,
+    // Number of opcodes of the current script processed so far, executed or not
+    pub opcode_pos: u32,
     // The witness program
     pub witness_program: ByteArray,
     // The witness version
@@ -139,6 +141,7 @@ pub impl EngineImpl<
             scripts: array![script_sig, script_pubkey],
             script_idx: 0,
             opcode_idx: 0,
+            opcode_pos: 0,
             witness_program: "",
             witness_version: 0,
             taproot_context: TaprootContextImpl::empty(),
@@ -353,6 +356,7 @@ pub impl EngineImpl<
                         err = res.unwrap_err();
                         break;
                     }
+                    self.opcode_pos += 1;
                     continue;
                 }
 
@@ -378,6 +382,7 @@ pub impl EngineImpl<
                     break;
                 }
                 self.opcode_idx += 1;
+                self.opcode_pos += 1;
             };
 
             if err != '' {
@@ -393,6 +398,7 @@ pub impl EngineImpl<
             }
             self.num_ops = 0;
             self.opcode_idx = 0;
+            self.opcode_pos = 0;
             if self.script_idx == 0 && self.bip16 {
                 self.script_idx += 1;
                 // TODO: Use @ instead of clone span

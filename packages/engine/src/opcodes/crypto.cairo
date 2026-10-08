@@ -341,9 +341,9 @@ pub fn opcode_codeseparator<
 ) -> Result<(), felt252> {
     engine.last_code_sep = engine.opcode_idx;
 
-    if !engine.use_taproot {
-        // TODO: Check if this is correct
-        engine.taproot_context.code_sep = engine.opcode_idx;
+    if engine.use_taproot {
+        // BIP-342: the position of this opcode, counting every opcode of the script from 0.
+        engine.taproot_context.code_sep = engine.opcode_pos;
     } else if engine.witness_program.len() == 0
         && engine.has_flag(ScriptFlags::ScriptVerifyConstScriptCode) {
         return Result::Err(Error::CODESEPARATOR_NON_SEGWIT);
@@ -438,11 +438,11 @@ pub fn opcode_checksigadd<
         return Result::Ok(());
     }
 
-    let mut verifier = TaprootSigVerifierTrait::<
+    let verifier = TaprootSigVerifierTrait::<
         I, O, T,
-    >::new(@sig_bytes, @pk_bytes, engine.taproot_context.annex, ref engine)?;
+    >::new_base(@sig_bytes, @pk_bytes, ref engine)?;
 
-    if (TaprootSigVerifierTrait::<I, O, T>::verify(verifier).is_err()) {
+    if (TaprootSigVerifierTrait::<I, O, T>::verify_base(verifier, ref engine).is_err()) {
         return Result::Err(Error::TAPROOT_INVALID_SIG);
     }
 

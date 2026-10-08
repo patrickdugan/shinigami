@@ -402,6 +402,7 @@ pub mod Opcode {
             183 => flow::opcode_nop(ref engine, 183),
             184 => flow::opcode_nop(ref engine, 184),
             185 => flow::opcode_nop(ref engine, 185),
+            186 => crypto::opcode_checksigadd(ref engine),
             _ => utils::not_implemented(ref engine),
         }
     }
@@ -481,9 +482,8 @@ pub mod Opcode {
     }
 
     pub fn is_success_opcode(opcode: u8) -> bool {
-        // TODO: To map
-        if opcode > 186 {
-            // OP_UNKNOWNX
+        // BIP-342: 80, 98, 126-129, 131-134, 137-138, 141-142, 149-153 and 187-254.
+        if opcode >= 187 && opcode <= 254 {
             return true;
         }
         if opcode == OP_RESERVED
