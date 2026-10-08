@@ -6,7 +6,7 @@ use crate::signature::constants;
 use crate::signature::utils::{
     remove_opcodeseparator, transaction_procedure, is_witness_pub_key_hash,
 };
-use crate::transaction::{EngineTransactionOutput};
+use crate::transaction::{EngineTransactionOutput, version_to_u32};
 use shinigami_utils::bytecode::write_var_int;
 use shinigami_utils::hash::{sha256_byte_array, simple_sha256, double_sha256};
 use crate::opcodes::opcodes::Opcode;
@@ -84,7 +84,7 @@ pub fn calc_witness_signature_hash<
 
     // TODO: Bounds check?
     let mut sig_hash_bytes: ByteArray = "";
-    sig_hash_bytes.append_word_rev(transaction.get_version().into(), 4);
+    sig_hash_bytes.append_word_rev(version_to_u32(transaction.get_version()).into(), 4);
 
     let zero: u256 = 0;
     if hash_type & constants::SIG_HASH_ANYONECANPAY == 0 {
@@ -296,7 +296,7 @@ pub fn calc_taproot_signature_hash<
     // The final sighash always starts with 0x00, called sighash epoch
     sig_msg.append_byte(0x00);
     sig_msg.append_byte(h_type.try_into().unwrap());
-    sig_msg.append_word_rev(transaction.get_version().into(), 4);
+    sig_msg.append_word_rev(version_to_u32(transaction.get_version()).into(), 4);
     sig_msg.append_word_rev(transaction.get_locktime().into(), 4);
 
     // let mut sig_hashes: @TaprootSigHashMidState = Default::default();

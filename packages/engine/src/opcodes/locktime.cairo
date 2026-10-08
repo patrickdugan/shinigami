@@ -1,6 +1,6 @@
 use crate::engine::{Engine, EngineInternalImpl};
 use crate::transaction::{
-    EngineTransactionTrait, EngineTransactionInputTrait, EngineTransactionOutputTrait,
+    EngineTransactionTrait, EngineTransactionInputTrait, EngineTransactionOutputTrait, version_to_u32,
 };
 use crate::errors::Error;
 use crate::flags::ScriptFlags;
@@ -120,10 +120,13 @@ pub fn opcode_checksequenceverify<
         return Result::Ok(());
     }
 
-    // Prevent trigger OP_CHECKSEQUENCEVERIFY before tx version 2
-    let version = EngineTransactionTrait::<
-        T, I, O, IEngineTransactionInputTrait, IEngineTransactionOutputTrait,
-    >::get_version(engine.transaction);
+    // Prevent trigger OP_CHECKSEQUENCEVERIFY before tx version 2. Bitcoin compares the version as
+    // unsigned.
+    let version = version_to_u32(
+        EngineTransactionTrait::<
+            T, I, O, IEngineTransactionInputTrait, IEngineTransactionOutputTrait,
+        >::get_version(engine.transaction),
+    );
     if version < 2 {
         return Result::Err(Error::UNSATISFIED_LOCKTIME);
     }

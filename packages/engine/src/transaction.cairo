@@ -84,6 +84,26 @@ pub trait EngineInternalTransactionTrait {
     fn print(self: @EngineTransaction);
 }
 
+// The transaction version is a signed 32-bit field in this engine's types, but Bitcoin
+// serializes it as four little-endian bytes and compares it as unsigned (BIP-68, BIP-112).
+pub fn version_from_u32(version: u32) -> i32 {
+    if version >= 0x80000000 {
+        let signed: i64 = version.into() - 0x100000000;
+        signed.try_into().unwrap()
+    } else {
+        version.try_into().unwrap()
+    }
+}
+
+pub fn version_to_u32(version: i32) -> u32 {
+    if version < 0 {
+        let unsigned: i64 = version.into() + 0x100000000;
+        unsigned.try_into().unwrap()
+    } else {
+        version.try_into().unwrap()
+    }
+}
+
 pub const BASE_ENCODING: u32 = 0x01;
 pub const WITNESS_ENCODING: u32 = 0x02;
 
@@ -215,7 +235,9 @@ pub impl EngineInternalTransactionImpl of EngineInternalTransactionTrait {
         raw: ByteArray, encoding: u32, txid: u256, utxos: Array<UTXO>,
     ) -> EngineTransaction {
         let mut offset: usize = 0;
-        let version: i32 = byte_array_value_at_le(@raw, ref offset, 4).try_into().unwrap();
+        let version = version_from_u32(
+            byte_array_value_at_le(@raw, ref offset, 4).try_into().unwrap(),
+        );
         if encoding == WITNESS_ENCODING {
             // consume flags
             offset += 2;
@@ -304,7 +326,7 @@ pub impl EngineInternalTransactionImpl of EngineInternalTransactionTrait {
 
     fn deserialize(raw: ByteArray, txid: u256, utxos: Array<UTXO>) -> EngineTransaction {
         let mut offset: usize = 0;
-        let _version: i32 = byte_array_value_at_le(@raw, ref offset, 4).try_into().unwrap();
+        offset += 4; // version
         let flags: u16 = byte_array_value_at_le(@raw, ref offset, 2).try_into().unwrap();
 
         if flags == 0x100 {
@@ -321,7 +343,7 @@ pub impl EngineInternalTransactionImpl of EngineInternalTransactionTrait {
     // Serialize the transaction data for hashing based on encoding used.
     fn btc_encode(self: EngineTransaction, encoding: u32) -> ByteArray {
         let mut bytes = "";
-        bytes.append_word_rev(self.version.into(), 4);
+        bytes.append_word_rev(version_to_u32(self.version).into(), 4);
         // TODO: Witness encoding
 
         // Serialize each input in the transaction.
