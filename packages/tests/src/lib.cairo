@@ -25,4 +25,5 @@ pub mod tests {
     mod test_p2sh;
     mod test_p2tr_bip341;
     mod test_p2tr_ark;
+    mod test_core_regressions;
 }

@@ -1,0 +1,19 @@
+[package]
+name = "shinigami_core_vectors"
+version = "0.1.0"
+edition = "2024_07"
+
+[cairo]
+enable-gas = false
+
+[dependencies]
+cairo_execute = "2.19.6"
+shinigami_engine = { path = "../../../packages/engine" }
+
+[[target.executable]]
+name = "run_case"
+function = "shinigami_core_vectors::run_case"
+
+[[target.executable]]
+name = "run_cases"
+function = "shinigami_core_vectors::run_cases"
