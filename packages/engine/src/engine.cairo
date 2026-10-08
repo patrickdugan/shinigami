@@ -350,6 +350,14 @@ pub impl EngineImpl<
                     }
                 }
 
+                if opcode == Opcode::OP_CODESEPARATOR
+                    && !self.use_taproot
+                    && self.witness_program.len() == 0
+                    && self.has_flag(ScriptFlags::ScriptVerifyConstScriptCode) {
+                    err = Error::CODESEPARATOR_NON_SEGWIT;
+                    break;
+                }
+
                 if !self.cond_stack.branch_executing() && !Opcode::is_branching_opcode(opcode) {
                     let res = self.skip();
                     if res.is_err() {

@@ -70,6 +70,7 @@ pub fn opcode_checksig<
     let pk_bytes = engine.dstack.pop_byte_array()?;
     let full_sig_bytes = engine.dstack.pop_byte_array()?;
     if !engine.use_taproot && full_sig_bytes.len() < 1 {
+        signature::check_pub_key_encoding(ref engine, @pk_bytes)?;
         engine.dstack.push_bool(false);
         return Result::Ok(());
     }

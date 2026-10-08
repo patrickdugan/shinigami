@@ -452,27 +452,14 @@ pub fn parse_signature(sig_bytes: @ByteArray) -> Result<Signature, felt252> {
 
     let r_sig: u256 = u256_from_byte_array_with_offset(sig_bytes, r_offset, r_len);
 
-    if r_len > 32 {
-        return Result::Err('invalid sig: R > 256 bits');
-    }
-    if r_sig >= order {
-        return Result::Err('invalid sig: R >= group order');
-    }
-    if r_sig == 0 {
-        return Result::Err('invalid sig: R is zero');
-    }
-    if s_len > 32 {
-        return Result::Err('invalid sig: S > 256 bits');
-    }
-    if s_sig >= order {
-        return Result::Err('invalid sig: S >= group order');
-    }
-    if s_sig == 0 {
-        return Result::Err('invalid sig: S is zero');
-    }
-
     if sig_bytes.len() != sig_bytes[3].into() + sig_bytes[sig_bytes[3].into() + 5].into() + 6 {
         return Result::Err('invalid sig: bad final length');
+    }
+
+    // Values out of range give a signature that cannot verify: r = 0 is rejected by ECDSA
+    // verification. This matches libsecp256k1's lax DER parser, which Bitcoin Core uses.
+    if r_len > 32 || r_sig >= order || r_sig == 0 || s_len > 32 || s_sig >= order || s_sig == 0 {
+        return Result::Ok(Signature { r: 0, s: 0, y_parity: false });
     }
 
     return Result::Ok(Signature { r: r_sig, s: s_sig, y_parity: false });
