@@ -52,3 +52,23 @@ Each check is classified against Bitcoin Core:
 Flags matter for interpreting a failure. Consensus flags on mainnet today are P2SH, DERSIG,
 NULLDUMMY, CHECKLOCKTIMEVERIFY, CHECKSEQUENCEVERIFY, WITNESS and TAPROOT; every other flag is a
 relay policy. `summarize.py` reports the two separately.
+
+## Results
+
+Run on 2026-10-09 against this branch at `f89b7d8`, with Scarb 2.19.6:
+
+| Vectors | Checks | Agree with Core | Soundness failures | Completeness failures |
+| --- | ---: | ---: | ---: | ---: |
+| `script_tests.json` | 1,258 | 1,258 | 0 | 0 |
+| `script_assets_test.json` | 3,719 | 3,719 | 0 | 0 |
+
+3,984 of the checks use consensus flags only and 993 include relay-policy flags. The 18 checks of
+`tapscript/bigmulti` and `tapscript/no10000limit` were excluded (`--exclude`): they run thousands
+of signature checks each, which takes too long and too much memory in the Cairo VM.
+
+Vector files used: `script_tests.json` from bitcoin/bitcoin at `f739c78` (sha256 `7fb93dea…864c`),
+`script_assets_test.json` from bitcoin-core/qa-assets at `b33d851` (sha256 `cd789a58…f095`).
+
+Before the fixes on this branch, the same harness found nine consensus defects and two policy
+ones. The regression tests in `packages/tests/src/tests/test_core_regressions.cairo` pin each of
+them; 12 of those 15 tests fail on `1547fab`.

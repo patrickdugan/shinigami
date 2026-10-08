@@ -15,6 +15,19 @@
 
 </div>
 
+## This branch
+
+`patrickdugan/shinigami`, branch `taproot-provable`, makes the engine provable as a standalone
+Cairo executable with Stwo and completes Taproot validation. It is used by
+[vtxo-exit-proof](https://github.com/patrickdugan/vtxo-exit-proof) to prove that an Ark VTXO's exit
+transactions are valid Bitcoin.
+
+- No Starknet syscalls: SHA-256 and secp256k1 are pure Cairo (`packages/engine/src/secp256k1.cairo`).
+- Taproot key path and script path, BIP-341 and BIP-342 signature messages, `OP_CHECKSIGADD`.
+- Checked against Bitcoin Core's own consensus test vectors (`scripts/core_vectors`): all 4,977
+  checks run agree with Bitcoin Core.
+- Not audited, and not merged upstream.
+
 ## Overview
 
 `shinigami` is a library for generic Bitcoin Script execution in Cairo, enabling the generation of STARK proofs for Bitcoin Script computation and Bitcoin transaction execution.
