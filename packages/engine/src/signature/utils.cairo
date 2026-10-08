@@ -116,6 +116,7 @@ pub fn transaction_procedure<
                 );
         } else {
             if hash_type & constants::SIG_HASH_ANYONECANPAY != 0 {
+                i += 1;
                 continue;
             }
             let mut temp_sequence = temp_transaction_input.sequence;
@@ -144,6 +145,14 @@ pub fn transaction_procedure<
     }
 
     if hash_type_masked == constants::SIG_HASH_SINGLE {
+        // `calc_signature_hash` has already handled an index without a matching output.
+        let output = transaction.get_transaction_outputs()[index];
+        processed_transaction_output
+            .append(
+                EngineTransactionOutput {
+                    value: output.get_value(), publickey_script: output.get_publickey_script().clone(),
+                },
+            );
         transaction_copy.transaction_outputs = processed_transaction_output;
     }
 

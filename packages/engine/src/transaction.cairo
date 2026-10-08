@@ -104,6 +104,17 @@ pub fn version_to_u32(version: i32) -> u32 {
     }
 }
 
+// An output value as the eight bytes Bitcoin serializes. Legacy SIGHASH_SINGLE blanks outputs
+// with the value -1, serialized as 0xffffffffffffffff.
+pub fn value_to_u64(value: i64) -> u64 {
+    if value < 0 {
+        let unsigned: i128 = value.into() + 0x10000000000000000;
+        unsigned.try_into().unwrap()
+    } else {
+        value.try_into().unwrap()
+    }
+}
+
 pub const BASE_ENCODING: u32 = 0x01;
 pub const WITNESS_ENCODING: u32 = 0x02;
 
@@ -378,7 +389,7 @@ pub impl EngineInternalTransactionImpl of EngineInternalTransactionTrait {
             let script: @ByteArray = output.publickey_script;
             let script_len: usize = script.len();
 
-            bytes.append_word_rev(value.into(), 8);
+            bytes.append_word_rev(value_to_u64(value).into(), 8);
             write_var_int(ref bytes, script_len.into());
             bytes.append(script);
 

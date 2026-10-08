@@ -35,9 +35,11 @@ pub fn calc_signature_hash<
     // The original Satoshi client gave a signature hash of 0x01 in cases where the input index
     // was out of bounds. This buggy/dangerous behavior is part of the consensus rules,
     // and would require a hard fork to fix.
+    // Bitcoin Core returns uint256::ONE, whose bytes are 01 00 .. 00; read as a big-endian
+    // message hash, as everywhere else here, that is 2^248.
     if hash_type & constants::SIG_HASH_MASK == constants::SIG_HASH_SINGLE
         && tx_idx >= transaction_outputs_len {
-        return 0x01;
+        return 0x0100000000000000000000000000000000000000000000000000000000000000;
     }
 
     // Remove any OP_CODESEPARATOR opcodes from the subscript.
