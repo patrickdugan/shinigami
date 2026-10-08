@@ -12,6 +12,6 @@ license-file = "LICENSE"
 repository = "https://github.com/keep-starknet-strange/shinigami.git"
 
 [workspace.dependencies]
-ripemd160 = { git = "https://github.com/j1mbo64/ripemd160_cairo.git" }
-sha1 = { git = "https://github.com/j1mbo64/sha1_cairo.git" }
+ripemd160 = { git = "https://github.com/j1mbo64/ripemd160_cairo.git", rev = "833e07d7d074d4ee51ceb40a5bcb4af2fe6898f3" }
+sha1 = { git = "https://github.com/j1mbo64/sha1_cairo.git", rev = "2b65bc00a829bdcc244c140d0f31feda32f8d2c4" }
 cairo_test = "2.8.2"
